@@ -9,7 +9,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
-@CrossOrigin("*")
+@CrossOrigin("https://user-frontend-ddg1.onrender.com")
 public class UserController {
 
     @Autowired
