@@ -1,7 +1,5 @@
 package com.user.userextract.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -15,70 +13,75 @@ public class UserService {
     @Autowired
     private RestTemplate restTemplate;
 
-    private final String BASE_URL = "https://sitpolycab.fiberify.com/api/users";
+    // 🔥 HARD CODE YOUR TOKEN HERE
+    private final String token = "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJmaWJlcmlmeWluYyIsImF1dGgiOiJST0xFX0JBLFJPTEVfT0EsUk9MRV9QTEFOX0FETUlOLFJPTEVfUk9MTE9VVF9BRE1JTixST0xFX1JPTExPVVRfTUFOQUdFUixST0xFX1VTRVJfQURNSU4iLCJleHAiOjE3Nzc2Mjc3NTF9.FWiSwm1QAgBvPiDCJT2f0NaZOQHr6oGPo5Z12xvc_QW9XStX4WYkQB1zrm-fO73aV95WStvqgt-CPHFFi7vsDg";
 
-    // 🔐 Paste your Bearer token here
-    private final String TOKEN = "Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJmaWJlcmlmeWluYyIsImF1dGgiOiJST0xFX0JBLFJPTEVfT0EsUk9MRV9QTEFOX0FETUlOLFJPTEVfUk9MTE9VVF9BRE1JTixST0xFX1JPTExPVVRfTUFOQUdFUixST0xFX1VTRVJfQURNSU4iLCJleHAiOjE3Nzc2Mjc3NTF9.FWiSwm1QAgBvPiDCJT2f0NaZOQHr6oGPo5Z12xvc_QW9XStX4WYkQB1zrm-fO73aV95WStvqgt-CPHFFi7vsDg";
+    public List<Map<String, Object>> getAllUsersWithGeofence() {
 
-    public List<Map<String, Object>> getAllUsers() {
-
-        List<JsonNode> allUsers = new ArrayList<>();
-        ObjectMapper mapper = new ObjectMapper();
+        List<Map<String, Object>> finalUsers = new ArrayList<>();
 
         int page = 0;
         int size = 50;
-        boolean hasMore = true;
 
-        while (hasMore) {
+        while (true) {
 
-            String url = BASE_URL
-                    + "?page=" + page
-                    + "&size=" + size
-                    + "&sort=last_modified_date,desc";
+            String url = "https://polycab.fiberify.com/api/users?page=" + page + "&size=" + size;
 
-            try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Authorization", "Bearer " + token);
 
-                // 🔐 Headers
-                HttpHeaders headers = new HttpHeaders();
-                headers.set("Authorization", TOKEN);
-                headers.set("Accept", "application/json");
+            HttpEntity<String> entity = new HttpEntity<>(headers);
 
-                HttpEntity<String> entity = new HttpEntity<>(headers);
+            ResponseEntity<List> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    entity,
+                    List.class
+            );
 
-                ResponseEntity<String> response =
-                        restTemplate.exchange(
-                                url,
-                                HttpMethod.GET,
-                                entity,
-                                String.class
-                        );
+            List<Map<String, Object>> users = response.getBody();
 
-                JsonNode root = mapper.readTree(response.getBody());
+            if (users == null || users.isEmpty()) break;
 
-                // ✅ API returns direct array
-                JsonNode content = root;
+            for (Map<String, Object> user : users) {
 
-                System.out.println("PAGE: " + page + " SIZE: " + content.size());
+                String login = (String) user.get("login");
 
-                if (content.size() == 0) {
-                    hasMore = false;
-                } else {
-                    content.forEach(allUsers::add);
-                    page++;
+                try {
+                    // 🔥 SECOND API CALL
+                    String detailUrl = "https://sitpolycab.fiberify.com/api/users/" + login;
+
+                    HttpHeaders detailHeaders = new HttpHeaders();
+                    detailHeaders.set("Authorization", "Bearer " + token);
+
+                    HttpEntity<String> detailEntity = new HttpEntity<>(detailHeaders);
+
+                    ResponseEntity<Map> detailResponse = restTemplate.exchange(
+                            detailUrl,
+                            HttpMethod.GET,
+                            detailEntity,
+                            Map.class
+                    );
+
+                    Map<String, Object> detail = detailResponse.getBody();
+
+                    if (detail != null && detail.containsKey("geofenceNames")) {
+                        user.put("geofenceNames", detail.get("geofenceNames"));
+                    } else {
+                        user.put("geofenceNames", new ArrayList<>());
+                    }
+
+                } catch (Exception e) {
+                    System.out.println("Error fetching geofence for: " + login);
+                    user.put("geofenceNames", new ArrayList<>());
                 }
 
-            } catch (Exception e) {
-                e.printStackTrace();
-                hasMore = false;
+                finalUsers.add(user);
             }
-        }
-        List<Map<String, Object>> cleanUsers = new ArrayList<>();
 
-        for (JsonNode user : allUsers) {
-            Map<String, Object> map = mapper.convertValue(user, Map.class);
-            cleanUsers.add(map);
+            page++;
         }
 
-        return cleanUsers;
+        return finalUsers;
     }
 }
