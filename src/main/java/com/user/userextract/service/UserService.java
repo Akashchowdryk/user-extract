@@ -13,10 +13,11 @@ public class UserService {
     @Autowired
     private RestTemplate restTemplate;
 
-    // 🔥 HARD CODE YOUR TOKEN HERE
+    // 🔥 HARD CODE TOKEN
     private final String token = "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJmaWJlcmlmeWluYyIsImF1dGgiOiJST0xFX0JBLFJPTEVfT0EsUk9MRV9QTEFOX0FETUlOLFJPTEVfUk9MTE9VVF9BRE1JTixST0xFX1JPTExPVVRfTUFOQUdFUixST0xFX1VTRVJfQURNSU4iLCJleHAiOjE3Nzc2Mjc3NTF9.FWiSwm1QAgBvPiDCJT2f0NaZOQHr6oGPo5Z12xvc_QW9XStX4WYkQB1zrm-fO73aV95WStvqgt-CPHFFi7vsDg";
 
-    public List<Map<String, Object>> getAllUsersWithGeofence() {
+    // ✅ FAST USERS (NO GEOFENCE)
+    public List<Map<String, Object>> getAllUsers() {
 
         List<Map<String, Object>> finalUsers = new ArrayList<>();
 
@@ -43,45 +44,31 @@ public class UserService {
 
             if (users == null || users.isEmpty()) break;
 
-            for (Map<String, Object> user : users) {
-
-                String login = (String) user.get("login");
-
-                try {
-                    // 🔥 SECOND API CALL
-                    String detailUrl = "https://sitpolycab.fiberify.com/api/users/" + login;
-
-                    HttpHeaders detailHeaders = new HttpHeaders();
-                    detailHeaders.set("Authorization", "Bearer " + token);
-
-                    HttpEntity<String> detailEntity = new HttpEntity<>(detailHeaders);
-
-                    ResponseEntity<Map> detailResponse = restTemplate.exchange(
-                            detailUrl,
-                            HttpMethod.GET,
-                            detailEntity,
-                            Map.class
-                    );
-
-                    Map<String, Object> detail = detailResponse.getBody();
-
-                    if (detail != null && detail.containsKey("geofenceNames")) {
-                        user.put("geofenceNames", detail.get("geofenceNames"));
-                    } else {
-                        user.put("geofenceNames", new ArrayList<>());
-                    }
-
-                } catch (Exception e) {
-                    System.out.println("Error fetching geofence for: " + login);
-                    user.put("geofenceNames", new ArrayList<>());
-                }
-
-                finalUsers.add(user);
-            }
+            finalUsers.addAll(users);
 
             page++;
         }
 
         return finalUsers;
+    }
+
+    // ✅ FETCH GEOFENCE ONLY WHEN CLICKED
+    public Map<String, Object> getUserWithGeofence(String login) {
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + token);
+
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        String url = "https://sitpolycab.fiberify.com/api/users/" + login;
+
+        ResponseEntity<Map> response = restTemplate.exchange(
+                url,
+                HttpMethod.GET,
+                entity,
+                Map.class
+        );
+
+        return response.getBody();
     }
 }
