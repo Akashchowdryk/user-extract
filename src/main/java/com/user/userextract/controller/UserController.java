@@ -9,7 +9,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
-@CrossOrigin("https://user-frontend-ddg1.onrender.com")
+@CrossOrigin(origins = "*")
 public class UserController {
 
     @Autowired
@@ -17,6 +17,6 @@ public class UserController {
 
     @GetMapping("/all-users")
     public List<Map<String, Object>> getAllUsers() {
-        return userService.getAllUsers();
+        return userService.getAllUsersWithGeofence();
     }
 }
