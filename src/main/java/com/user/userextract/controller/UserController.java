@@ -1,28 +1,25 @@
 package com.user.userextract.controller;
 
 import com.user.userextract.service.UserService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.*;
+import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
-@CrossOrigin(origins = "*")
+@CrossOrigin("*")
 public class UserController {
 
-    @Autowired
-    private UserService userService;
+    private final UserService service;
 
-    // ✅ FAST USERS
-    @GetMapping("/all-users")
-    public List<Map<String, Object>> getUsers() {
-        return userService.getAllUsers();
+    public UserController(UserService service) {
+        this.service = service;
     }
 
-    // ✅ USER DETAILS WITH GEOFENCE
-    @GetMapping("/user/{login}")
-    public Map<String, Object> getUserDetails(@PathVariable String login) {
-        return userService.getUserWithGeofence(login);
+    // 🔥 NEW API
+    @GetMapping("/users-summary")
+    public List<Map<String, Object>> getUsersSummary() {
+        return service.getUsersSummary();
     }
 }
