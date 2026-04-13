@@ -15,17 +15,15 @@ public class UserService {
     @Autowired
     private RestTemplate restTemplate;
 
-    // 🔥 TOKEN
     private final String token = "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJmaWJlcmlmeWluYyIsImF1dGgiOiJST0xFX0JBLFJPTEVfT0EsUk9MRV9QTEFOX0FETUlOLFJPTEVfUk9MTE9VVF9BRE1JTixST0xFX1JPTExPVVRfTUFOQUdFUixST0xFX1VTRVJfQURNSU4iLCJleHAiOjE3Nzc2Mjc3NTF9.FWiSwm1QAgBvPiDCJT2f0NaZOQHr6oGPo5Z12xvc_QW9XStX4WYkQB1zrm-fO73aV95WStvqgt-CPHFFi7vsDg";
 
-    // ✅ COMMON HEADER
     private HttpEntity<String> getEntity() {
         HttpHeaders headers = new HttpHeaders();
         headers.set("Authorization", "Bearer " + token);
         return new HttpEntity<>(headers);
     }
 
-    // 🚀 FAST SUMMARY API (WITH GEOFENCE)
+    // 🚀 SUMMARY API (WITH PHONE + ROLES + GEOFENCE)
     public List<Map<String, Object>> getUsersSummary() {
 
         List<Map<String, Object>> finalUsers = new ArrayList<>();
@@ -71,20 +69,20 @@ public class UserService {
 
                         Map<String, Object> summary = new HashMap<>();
 
-                        // ✅ BASIC
-                        summary.put("id", detail.get("id"));
+                        // BASIC
                         summary.put("login", detail.get("login"));
 
                         String firstName = detail.get("firstName") != null ? detail.get("firstName").toString() : "";
                         String lastName = detail.get("lastName") != null ? detail.get("lastName").toString() : "";
-
                         summary.put("name", (firstName + " " + lastName).trim());
-                        summary.put("email", detail.get("email"));
 
-                        // ✅ STATUS
+                        // 🔥 PHONE (NEW)
+                        summary.put("phone", detail.get("phone"));
+
+                        // STATUS
                         summary.put("activated", detail.get("activated"));
 
-                        // ✅ REPORTING TO
+                        // REPORTING TO
                         List<Map<String, Object>> ownedBy =
                                 (List<Map<String, Object>>) detail.get("ownedBy");
 
@@ -94,12 +92,13 @@ public class UserService {
                             summary.put("reportingTo", "-");
                         }
 
-                        // 🔥 ✅ GEOFENCE FIX (IMPORTANT)
-                        List<String> geofences =
-                                (List<String>) detail.get("geofenceNames");
+                        // ROLES
+                        List<String> roles = (List<String>) detail.get("authorities");
+                        summary.put("roles", roles != null ? roles : new ArrayList<>());
 
-                        summary.put("geofenceNames",
-                                geofences != null ? geofences : new ArrayList<>());
+                        // GEOFENCE
+                        List<String> geofences = (List<String>) detail.get("geofenceNames");
+                        summary.put("geofenceNames", geofences != null ? geofences : new ArrayList<>());
 
                         return summary;
 
@@ -108,9 +107,10 @@ public class UserService {
                         Map<String, Object> fallback = new HashMap<>();
                         fallback.put("login", login);
                         fallback.put("name", "ERROR");
-                        fallback.put("email", "ERROR");
+                        fallback.put("phone", "ERROR");
                         fallback.put("activated", "ERROR");
                         fallback.put("reportingTo", "ERROR");
+                        fallback.put("roles", new ArrayList<>());
                         fallback.put("geofenceNames", new ArrayList<>());
 
                         return fallback;
@@ -121,7 +121,6 @@ public class UserService {
             page++;
         }
 
-        // 🔥 COLLECT RESULTS
         for (Future<Map<String, Object>> future : futures) {
             try {
                 finalUsers.add(future.get());
@@ -135,7 +134,7 @@ public class UserService {
         return finalUsers;
     }
 
-    // ✅ USER DETAILS (CLICK)
+    // ✅ USER DETAILS
     public Map<String, Object> getUserWithGeofence(String login) {
 
         String url = "https://sitpolycab.fiberify.com/api/users/" + login;
@@ -154,8 +153,6 @@ public class UserService {
 
             Map<String, Object> error = new HashMap<>();
             error.put("error", "Failed to fetch user details");
-            error.put("login", login);
-
             return error;
         }
     }
