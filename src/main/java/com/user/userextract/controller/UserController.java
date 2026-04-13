@@ -17,7 +17,6 @@ public class UserController {
         this.service = service;
     }
 
-    // 🔥 NEW API
     @GetMapping("/users-summary")
     public List<Map<String, Object>> getUsersSummary() {
         return service.getUsersSummary();
