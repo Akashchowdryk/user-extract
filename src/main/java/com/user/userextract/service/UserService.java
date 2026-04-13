@@ -1,6 +1,7 @@
 package com.user.userextract.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -14,15 +15,17 @@ public class UserService {
     @Autowired
     private RestTemplate restTemplate;
 
+    // 🔥 TOKEN
     private final String token = "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJmaWJlcmlmeWluYyIsImF1dGgiOiJST0xFX0JBLFJPTEVfT0EsUk9MRV9QTEFOX0FETUlOLFJPTEVfUk9MTE9VVF9BRE1JTixST0xFX1JPTExPVVRfTUFOQUdFUixST0xFX1VTRVJfQURNSU4iLCJleHAiOjE3Nzc2Mjc3NTF9.FWiSwm1QAgBvPiDCJT2f0NaZOQHr6oGPo5Z12xvc_QW9XStX4WYkQB1zrm-fO73aV95WStvqgt-CPHFFi7vsDg";
 
+    // ✅ COMMON HEADER METHOD
     private HttpEntity<String> getEntity() {
         HttpHeaders headers = new HttpHeaders();
         headers.set("Authorization", "Bearer " + token);
         return new HttpEntity<>(headers);
     }
 
-    // 🚀 FAST SUMMARY API
+    // 🚀 FAST USERS SUMMARY (PARALLEL)
     public List<Map<String, Object>> getUsersSummary() {
 
         List<Map<String, Object>> finalUsers = new ArrayList<>();
@@ -37,11 +40,11 @@ public class UserService {
 
             String url = "https://polycab.fiberify.com/api/users?page=" + page + "&size=" + size;
 
-            ResponseEntity<List> response = restTemplate.exchange(
+            ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
                     url,
                     HttpMethod.GET,
                     getEntity(),
-                    List.class
+                    new ParameterizedTypeReference<List<Map<String, Object>>>() {}
             );
 
             List<Map<String, Object>> users = response.getBody();
@@ -57,11 +60,11 @@ public class UserService {
                     try {
                         String detailUrl = "https://sitpolycab.fiberify.com/api/users/" + login;
 
-                        ResponseEntity<Map> detailResponse = restTemplate.exchange(
+                        ResponseEntity<Map<String, Object>> detailResponse = restTemplate.exchange(
                                 detailUrl,
                                 HttpMethod.GET,
                                 getEntity(),
-                                Map.class
+                                new ParameterizedTypeReference<Map<String, Object>>() {}
                         );
 
                         Map<String, Object> detail = detailResponse.getBody();
@@ -71,11 +74,10 @@ public class UserService {
                         summary.put("id", detail.get("id"));
                         summary.put("login", detail.get("login"));
 
-                        String name =
-                                (detail.get("firstName") != null ? detail.get("firstName") : "") + " " +
-                                (detail.get("lastName") != null ? detail.get("lastName") : "");
+                        String firstName = detail.get("firstName") != null ? detail.get("firstName").toString() : "";
+                        String lastName = detail.get("lastName") != null ? detail.get("lastName").toString() : "";
 
-                        summary.put("name", name.trim());
+                        summary.put("name", (firstName + " " + lastName).trim());
                         summary.put("email", detail.get("email"));
                         summary.put("activated", detail.get("activated"));
 
@@ -92,10 +94,12 @@ public class UserService {
                         return summary;
 
                     } catch (Exception e) {
+
                         Map<String, Object> fallback = new HashMap<>();
                         fallback.put("login", login);
                         fallback.put("activated", "ERROR");
                         fallback.put("reportingTo", "ERROR");
+
                         return fallback;
                     }
                 }));
@@ -104,7 +108,7 @@ public class UserService {
             page++;
         }
 
-        // 🔥 collect results
+        // 🔥 COLLECT RESULTS
         for (Future<Map<String, Object>> future : futures) {
             try {
                 finalUsers.add(future.get());
@@ -116,5 +120,32 @@ public class UserService {
         executor.shutdown();
 
         return finalUsers;
+    }
+
+    // 🔥 FIXED USER DETAILS (NO ERROR NOW)
+    public Map<String, Object> getUserWithGeofence(String login) {
+
+        String url = "https://sitpolycab.fiberify.com/api/users/" + login;
+
+        try {
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.GET,
+                    getEntity(),
+                    new ParameterizedTypeReference<Map<String, Object>>() {}
+            );
+
+            return response.getBody();
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", "Failed to fetch user details");
+            error.put("login", login);
+
+            return error;
+        }
     }
 }

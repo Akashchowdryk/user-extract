@@ -21,4 +21,8 @@ public class UserController {
     public List<Map<String, Object>> getUsersSummary() {
         return service.getUsersSummary();
     }
+    @GetMapping("/user/{login}")
+    public Map<String, Object> getUser(@PathVariable String login) {
+        return service.getUserWithGeofence(login);
+    }
 }
