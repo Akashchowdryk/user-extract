@@ -1,13 +1,11 @@
 package com.user.userextract.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
-import java.util.concurrent.*;
 
 @Service
 public class UserService {
@@ -17,143 +15,117 @@ public class UserService {
 
     private final String token = "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJmaWJlcmlmeWluYyIsImF1dGgiOiJST0xFX0JBLFJPTEVfT0EsUk9MRV9QTEFOX0FETUlOLFJPTEVfUk9MTE9VVF9BRE1JTixST0xFX1JPTExPVVRfTUFOQUdFUixST0xFX1VTRVJfQURNSU4iLCJleHAiOjE3Nzc2Mjc3NTF9.FWiSwm1QAgBvPiDCJT2f0NaZOQHr6oGPo5Z12xvc_QW9XStX4WYkQB1zrm-fO73aV95WStvqgt-CPHFFi7vsDg";
 
-    private HttpEntity<String> getEntity() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("Authorization", "Bearer " + token);
-        return new HttpEntity<>(headers);
-    }
-
-    // 🚀 SUMMARY API (WITH PHONE + ROLES + GEOFENCE)
-    public List<Map<String, Object>> getUsersSummary() {
+    // ✅ USERS SUMMARY (FAST)
+    public List<Map<String, Object>> getAllUsers() {
 
         List<Map<String, Object>> finalUsers = new ArrayList<>();
 
         int page = 0;
         int size = 50;
 
-        ExecutorService executor = Executors.newFixedThreadPool(10);
-        List<Future<Map<String, Object>>> futures = new ArrayList<>();
-
         while (true) {
 
             String url = "https://sitpolycab.fiberify.com/api/users?page=" + page + "&size=" + size;
 
-            ResponseEntity<List<Map<String, Object>>> response = restTemplate.exchange(
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Authorization", "Bearer " + token);
+
+            HttpEntity<String> entity = new HttpEntity<>(headers);
+
+            ResponseEntity<List> response = restTemplate.exchange(
                     url,
                     HttpMethod.GET,
-                    getEntity(),
-                    new ParameterizedTypeReference<List<Map<String, Object>>>() {}
+                    entity,
+                    List.class
             );
 
             List<Map<String, Object>> users = response.getBody();
-
             if (users == null || users.isEmpty()) break;
 
             for (Map<String, Object> user : users) {
 
                 String login = (String) user.get("login");
 
-                futures.add(executor.submit(() -> {
+                // 🔥 CALL DETAIL API
+                String detailUrl = "https://sitpolycab.fiberify.com/api/users/" + login;
 
-                    try {
-                        String detailUrl = "https://sitpolycab.fiberify.com/api/users/" + login;
+                ResponseEntity<Map> detailRes = restTemplate.exchange(
+                        detailUrl,
+                        HttpMethod.GET,
+                        entity,
+                        Map.class
+                );
 
-                        ResponseEntity<Map<String, Object>> detailResponse = restTemplate.exchange(
-                                detailUrl,
-                                HttpMethod.GET,
-                                getEntity(),
-                                new ParameterizedTypeReference<Map<String, Object>>() {}
-                        );
+                Map<String, Object> detail = detailRes.getBody();
 
-                        Map<String, Object> detail = detailResponse.getBody();
+                Map<String, Object> summary = new HashMap<>();
 
-                        Map<String, Object> summary = new HashMap<>();
+                summary.put("login", user.get("login"));
+                summary.put("name", user.get("firstName") + " " + user.get("lastName"));
+                summary.put("phone", user.get("phone"));
+                summary.put("activated", user.get("activated"));
 
-                        // BASIC
-                        summary.put("login", detail.get("login"));
+                // 🔥 IMPORTANT (IDS)
+                summary.put("geofenceIds",
+                        detail.get("geofences") != null
+                                ? (List<Integer>) detail.get("geofences")
+                                : new ArrayList<>());
 
-                        String firstName = detail.get("firstName") != null ? detail.get("firstName").toString() : "";
-                        String lastName = detail.get("lastName") != null ? detail.get("lastName").toString() : "";
-                        summary.put("name", (firstName + " " + lastName).trim());
+                // 🔥 FOR UI DISPLAY
+                summary.put("geofenceNames", detail.get("geofenceNames"));
 
-                        // 🔥 PHONE (NEW)
-                        summary.put("phone", detail.get("phone"));
+                summary.put("reportingTo",
+                        detail.get("ownedBy") != null
+                                ? ((List<Map<String, Object>>) detail.get("ownedBy"))
+                                .stream().map(x -> (String) x.get("login")).toList()
+                                : new ArrayList<>());
 
-                        // STATUS
-                        summary.put("activated", detail.get("activated"));
-
-                        // REPORTING TO
-                        List<Map<String, Object>> ownedBy =
-                                (List<Map<String, Object>>) detail.get("ownedBy");
-
-                        if (ownedBy != null && !ownedBy.isEmpty()) {
-                            summary.put("reportingTo", ownedBy.get(0).get("login"));
-                        } else {
-                            summary.put("reportingTo", "-");
-                        }
-
-                        // ROLES
-                        List<String> roles = (List<String>) detail.get("authorities");
-                        summary.put("roles", roles != null ? roles : new ArrayList<>());
-
-                        // GEOFENCE
-                        List<String> geofences = (List<String>) detail.get("geofenceNames");
-                        summary.put("geofenceNames", geofences != null ? geofences : new ArrayList<>());
-
-                        return summary;
-
-                    } catch (Exception e) {
-
-                        Map<String, Object> fallback = new HashMap<>();
-                        fallback.put("login", login);
-                        fallback.put("name", "ERROR");
-                        fallback.put("phone", "ERROR");
-                        fallback.put("activated", "ERROR");
-                        fallback.put("reportingTo", "ERROR");
-                        fallback.put("roles", new ArrayList<>());
-                        fallback.put("geofenceNames", new ArrayList<>());
-
-                        return fallback;
-                    }
-                }));
+                finalUsers.add(summary);
             }
 
             page++;
         }
 
-        for (Future<Map<String, Object>> future : futures) {
-            try {
-                finalUsers.add(future.get());
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-
-        executor.shutdown();
-
         return finalUsers;
     }
 
-    // ✅ USER DETAILS
-    public Map<String, Object> getUserWithGeofence(String login) {
+    // ✅ DISTRICTS
+    public List<Map<String, Object>> getDistricts() {
 
-        String url = "https://sitpolycab.fiberify.com/api/users/" + login;
+        String url = "https://sitpolycab.fiberify.com/api/user-geofences-by-type-master";
 
-        try {
-            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
-                    url,
-                    HttpMethod.GET,
-                    getEntity(),
-                    new ParameterizedTypeReference<Map<String, Object>>() {}
-            );
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + token);
 
-            return response.getBody();
+        HttpEntity<String> entity = new HttpEntity<>(headers);
 
-        } catch (Exception e) {
+        ResponseEntity<List> response = restTemplate.exchange(
+                url,
+                HttpMethod.GET,
+                entity,
+                List.class
+        );
 
-            Map<String, Object> error = new HashMap<>();
-            error.put("error", "Failed to fetch user details");
-            return error;
-        }
+        return response.getBody();
+    }
+
+    // ✅ BLOCKS
+    public List<Map<String, Object>> getBlocks(Long id) {
+
+        String url = "https://sitpolycab.fiberify.com/api/mini-geofences-by-masterGefenceId/" + id;
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + token);
+
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        ResponseEntity<List> response = restTemplate.exchange(
+                url,
+                HttpMethod.GET,
+                entity,
+                List.class
+        );
+
+        return response.getBody();
     }
 }
