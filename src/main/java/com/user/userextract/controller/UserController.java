@@ -19,6 +19,12 @@ public class UserController {
         return userService.getAllUsers();
     }
 
+    // 🔥 FIXED (THIS WAS MISSING / WRONG)
+    @GetMapping("/user/{login}")
+    public Map<String, Object> getUser(@PathVariable String login) {
+        return userService.getUserDetails(login);
+    }
+
     @GetMapping("/districts")
     public List<Map<String, Object>> getDistricts() {
         return userService.getDistricts();
