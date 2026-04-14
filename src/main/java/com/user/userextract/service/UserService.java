@@ -7,7 +7,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
-import java.util.concurrent.*;
 
 @Service
 public class UserService {
@@ -15,12 +14,35 @@ public class UserService {
     @Autowired
     private RestTemplate restTemplate;
 
+    // 🔥 TOKEN
     private final String token = "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJmaWJlcmlmeWluYyIsImF1dGgiOiJST0xFX0JBLFJPTEVfT0EsUk9MRV9QTEFOX0FETUlOLFJPTEVfUk9MTE9VVF9BRE1JTixST0xFX1JPTExPVVRfTUFOQUdFUixST0xFX1VTRVJfQURNSU4iLCJleHAiOjE3Nzc2Mjc3NTF9.FWiSwm1QAgBvPiDCJT2f0NaZOQHr6oGPo5Z12xvc_QW9XStX4WYkQB1zrm-fO73aV95WStvqgt-CPHFFi7vsDg";
 
-    // 🔥 THREAD POOL (IMPORTANT)
-    private final ExecutorService executor = Executors.newFixedThreadPool(15);
+    // =========================================
+    // 🔥 CACHE VARIABLES
+    // =========================================
+    private List<UserSummaryDTO> cachedUsers = new ArrayList<>();
+    private long lastFetchTime = 0;
 
+    private List<Map<String, Object>> cachedDistricts = new ArrayList<>();
+    private long districtFetchTime = 0;
+
+    // ⏱ 5 minutes cache
+    private final long CACHE_DURATION = 5 * 60 * 1000;
+
+    // =========================================
+    // ✅ USERS SUMMARY (FAST VERSION)
+    // =========================================
     public List<UserSummaryDTO> getUsersSummary() {
+
+        long currentTime = System.currentTimeMillis();
+
+        // ✅ RETURN CACHE IF AVAILABLE
+        if (!cachedUsers.isEmpty() && (currentTime - lastFetchTime) < CACHE_DURATION) {
+            System.out.println("Returning cached users...");
+            return cachedUsers;
+        }
+
+        System.out.println("Fetching fresh users...");
 
         List<UserSummaryDTO> finalUsers = new ArrayList<>();
 
@@ -29,6 +51,7 @@ public class UserService {
 
         HttpHeaders headers = new HttpHeaders();
         headers.set("Authorization", "Bearer " + token);
+
         HttpEntity<String> entity = new HttpEntity<>(headers);
 
         while (true) {
@@ -43,85 +66,43 @@ public class UserService {
             );
 
             List<Map<String, Object>> users = response.getBody();
-            if (users == null || users.isEmpty()) break;
 
-            // 🔥 PARALLEL TASKS
-            List<CompletableFuture<UserSummaryDTO>> futures = new ArrayList<>();
+            if (users == null || users.isEmpty()) break;
 
             for (Map<String, Object> user : users) {
 
-                futures.add(CompletableFuture.supplyAsync(() -> {
+                UserSummaryDTO dto = new UserSummaryDTO();
 
-                    try {
-                        String login = (String) user.get("login");
+                // BASIC DATA ONLY (FAST)
+                dto.setLogin((String) user.get("login"));
+                dto.setName(user.get("firstName") + " " + user.get("lastName"));
+                dto.setPhone((String) user.get("phone"));
+                dto.setActivated((Boolean) user.get("activated"));
 
-                        String detailUrl = "https://sitpolycab.fiberify.com/api/users/" + login;
+                // ROLES
+                dto.setRoles((List<String>) user.get("authorities"));
 
-                        ResponseEntity<Map> detailResponse = restTemplate.exchange(
-                                detailUrl,
-                                HttpMethod.GET,
-                                entity,
-                                Map.class
-                        );
+                // VERSION
+                dto.setVersion((String) user.get("applicationVersion"));
 
-                        Map<String, Object> detail = detailResponse.getBody();
+                // 🔥 OPTIONAL SAFE FIELDS (avoid null issues)
+                dto.setReportingTo((String) user.getOrDefault("reportingTo", null));
 
-                        UserSummaryDTO dto = new UserSummaryDTO();
-
-                        dto.setLogin(login);
-                        dto.setName(user.get("firstName") + " " + user.get("lastName"));
-                        dto.setPhone((String) user.get("phone"));
-                        dto.setActivated((Boolean) user.get("activated"));
-
-                        // ROLES
-                        dto.setRoles((List<String>) user.get("authorities"));
-
-                        // VERSION
-                        dto.setVersion((String) user.get("applicationVersion"));
-
-                        // REPORTING TO
-                        if (detail != null) {
-                            List<Map<String, Object>> ownedBy =
-                                    (List<Map<String, Object>>) detail.get("ownedBy");
-
-                            if (ownedBy != null && !ownedBy.isEmpty()) {
-                                dto.setReportingTo((String) ownedBy.get(0).get("login"));
-                            }
-
-                            // GEOFENCES
-                            dto.setGeofenceNames(
-                                    (List<String>) detail.get("geofenceNames")
-                            );
-                        }
-
-                        return dto;
-
-                    } catch (Exception e) {
-                        System.out.println("Error for user: " + user.get("login"));
-                        return null;
-                    }
-
-                }, executor));
-            }
-
-            // 🔥 WAIT FOR ALL TASKS
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-
-            for (CompletableFuture<UserSummaryDTO> future : futures) {
-                try {
-                    UserSummaryDTO dto = future.get();
-                    if (dto != null) finalUsers.add(dto);
-                } catch (Exception ignored) {}
+                finalUsers.add(dto);
             }
 
             page++;
         }
 
+        // ✅ SAVE CACHE
+        cachedUsers = finalUsers;
+        lastFetchTime = currentTime;
+
         return finalUsers;
     }
 
     // =========================================
-    // USER DETAILS
+    // ✅ USER DETAILS (ON CLICK)
     // =========================================
     public Map<String, Object> getUserWithGeofence(String login) {
 
@@ -143,9 +124,16 @@ public class UserService {
     }
 
     // =========================================
-    // DISTRICTS
+    // ✅ DISTRICTS (CACHED)
     // =========================================
     public List<Map<String, Object>> getDistricts() {
+
+        long currentTime = System.currentTimeMillis();
+
+        if (!cachedDistricts.isEmpty() && (currentTime - districtFetchTime) < CACHE_DURATION) {
+            System.out.println("Returning cached districts...");
+            return cachedDistricts;
+        }
 
         HttpHeaders headers = new HttpHeaders();
         headers.set("Authorization", "Bearer " + token);
@@ -161,11 +149,14 @@ public class UserService {
                 List.class
         );
 
-        return response.getBody();
+        cachedDistricts = response.getBody();
+        districtFetchTime = currentTime;
+
+        return cachedDistricts;
     }
 
     // =========================================
-    // BLOCKS
+    // ✅ BLOCKS BY DISTRICT
     // =========================================
     public List<Map<String, Object>> getBlocksByDistrict(String districtId) {
 
