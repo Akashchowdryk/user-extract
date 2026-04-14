@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
+import java.util.concurrent.*;
 
 @Service
 public class UserService {
@@ -14,35 +15,26 @@ public class UserService {
     @Autowired
     private RestTemplate restTemplate;
 
-    // 🔥 TOKEN
     private final String token = "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJmaWJlcmlmeWluYyIsImF1dGgiOiJST0xFX0JBLFJPTEVfT0EsUk9MRV9QTEFOX0FETUlOLFJPTEVfUk9MTE9VVF9BRE1JTixST0xFX1JPTExPVVRfTUFOQUdFUixST0xFX1VTRVJfQURNSU4iLCJleHAiOjE3Nzc2Mjc3NTF9.FWiSwm1QAgBvPiDCJT2f0NaZOQHr6oGPo5Z12xvc_QW9XStX4WYkQB1zrm-fO73aV95WStvqgt-CPHFFi7vsDg";
 
-    // =========================================
-    // 🔥 CACHE VARIABLES
-    // =========================================
+    // 🔥 THREAD POOL
+    private final ExecutorService executor = Executors.newFixedThreadPool(10);
+
+    // CACHE
     private List<UserSummaryDTO> cachedUsers = new ArrayList<>();
     private long lastFetchTime = 0;
-
-    private List<Map<String, Object>> cachedDistricts = new ArrayList<>();
-    private long districtFetchTime = 0;
-
-    // ⏱ 5 minutes cache
     private final long CACHE_DURATION = 5 * 60 * 1000;
 
     // =========================================
-    // ✅ USERS SUMMARY (FAST VERSION)
+    // ✅ USERS SUMMARY (FAST + ENRICHED)
     // =========================================
     public List<UserSummaryDTO> getUsersSummary() {
 
-        long currentTime = System.currentTimeMillis();
+        long now = System.currentTimeMillis();
 
-        // ✅ RETURN CACHE IF AVAILABLE
-        if (!cachedUsers.isEmpty() && (currentTime - lastFetchTime) < CACHE_DURATION) {
-            System.out.println("Returning cached users...");
+        if (!cachedUsers.isEmpty() && (now - lastFetchTime) < CACHE_DURATION) {
             return cachedUsers;
         }
-
-        System.out.println("Fetching fresh users...");
 
         List<UserSummaryDTO> finalUsers = new ArrayList<>();
 
@@ -51,12 +43,11 @@ public class UserService {
 
         HttpHeaders headers = new HttpHeaders();
         headers.set("Authorization", "Bearer " + token);
-
         HttpEntity<String> entity = new HttpEntity<>(headers);
 
         while (true) {
 
-            String url = "https://sitpolycab.fiberify.com/api/users?page=" + page + "&size=" + size;
+            String url = "https://polycab.fiberify.com/api/users?page=" + page + "&size=" + size;
 
             ResponseEntity<List> response = restTemplate.exchange(
                     url,
@@ -66,43 +57,84 @@ public class UserService {
             );
 
             List<Map<String, Object>> users = response.getBody();
-
             if (users == null || users.isEmpty()) break;
+
+            // 🔥 PARALLEL DETAIL CALLS (LIMITED)
+            List<CompletableFuture<UserSummaryDTO>> futures = new ArrayList<>();
 
             for (Map<String, Object> user : users) {
 
-                UserSummaryDTO dto = new UserSummaryDTO();
+                futures.add(CompletableFuture.supplyAsync(() -> {
 
-                // BASIC DATA ONLY (FAST)
-                dto.setLogin((String) user.get("login"));
-                dto.setName(user.get("firstName") + " " + user.get("lastName"));
-                dto.setPhone((String) user.get("phone"));
-                dto.setActivated((Boolean) user.get("activated"));
+                    try {
+                        String login = (String) user.get("login");
 
-                // ROLES
-                dto.setRoles((List<String>) user.get("authorities"));
+                        UserSummaryDTO dto = new UserSummaryDTO();
 
-                // VERSION
-                dto.setVersion((String) user.get("applicationVersion"));
+                        dto.setLogin(login);
+                        dto.setName(user.get("firstName") + " " + user.get("lastName"));
+                        dto.setPhone((String) user.get("phone"));
+                        dto.setActivated((Boolean) user.get("activated"));
+                        dto.setRoles((List<String>) user.get("authorities"));
+                        dto.setVersion((String) user.get("applicationVersion"));
 
-                // 🔥 OPTIONAL SAFE FIELDS (avoid null issues)
-                dto.setReportingTo((String) user.getOrDefault("reportingTo", null));
+                        // 🔥 DETAIL API (IMPORTANT)
+                        String detailUrl = "https://sitpolycab.fiberify.com/api/users/" + login;
 
-                finalUsers.add(dto);
+                        ResponseEntity<Map> detailRes = restTemplate.exchange(
+                                detailUrl,
+                                HttpMethod.GET,
+                                entity,
+                                Map.class
+                        );
+
+                        Map<String, Object> detail = detailRes.getBody();
+
+                        if (detail != null) {
+
+                            // ✅ reportingTo
+                            List<Map<String, Object>> ownedBy =
+                                    (List<Map<String, Object>>) detail.get("ownedBy");
+
+                            if (ownedBy != null && !ownedBy.isEmpty()) {
+                                dto.setReportingTo((String) ownedBy.get(0).get("login"));
+                            }
+
+                            // ✅ geofences
+                            dto.setGeofenceNames(
+                                    (List<String>) detail.get("geofenceNames")
+                            );
+                        }
+
+                        return dto;
+
+                    } catch (Exception e) {
+                        return null;
+                    }
+
+                }, executor));
+            }
+
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+            for (CompletableFuture<UserSummaryDTO> f : futures) {
+                try {
+                    UserSummaryDTO dto = f.get();
+                    if (dto != null) finalUsers.add(dto);
+                } catch (Exception ignored) {}
             }
 
             page++;
         }
 
-        // ✅ SAVE CACHE
         cachedUsers = finalUsers;
-        lastFetchTime = currentTime;
+        lastFetchTime = now;
 
         return finalUsers;
     }
 
     // =========================================
-    // ✅ USER DETAILS (ON CLICK)
+    // USER DETAILS
     // =========================================
     public Map<String, Object> getUserWithGeofence(String login) {
 
@@ -113,25 +145,20 @@ public class UserService {
 
         String url = "https://sitpolycab.fiberify.com/api/users/" + login;
 
-        ResponseEntity<Map> response = restTemplate.exchange(
-                url,
-                HttpMethod.GET,
-                entity,
-                Map.class
-        );
-
-        return response.getBody();
+        return restTemplate.exchange(url, HttpMethod.GET, entity, Map.class).getBody();
     }
 
     // =========================================
-    // ✅ DISTRICTS (CACHED)
+    // DISTRICTS (CACHED)
     // =========================================
+    private List<Map<String, Object>> cachedDistricts = new ArrayList<>();
+    private long districtFetchTime = 0;
+
     public List<Map<String, Object>> getDistricts() {
 
-        long currentTime = System.currentTimeMillis();
+        long now = System.currentTimeMillis();
 
-        if (!cachedDistricts.isEmpty() && (currentTime - districtFetchTime) < CACHE_DURATION) {
-            System.out.println("Returning cached districts...");
+        if (!cachedDistricts.isEmpty() && (now - districtFetchTime) < CACHE_DURATION) {
             return cachedDistricts;
         }
 
@@ -142,21 +169,18 @@ public class UserService {
 
         String url = "https://sitpolycab.fiberify.com/api/user-geofences-by-type-master";
 
-        ResponseEntity<List> response = restTemplate.exchange(
-                url,
-                HttpMethod.GET,
-                entity,
-                List.class
-        );
+        List<Map<String, Object>> data = restTemplate.exchange(
+                url, HttpMethod.GET, entity, List.class
+        ).getBody();
 
-        cachedDistricts = response.getBody();
-        districtFetchTime = currentTime;
+        cachedDistricts = data;
+        districtFetchTime = now;
 
-        return cachedDistricts;
+        return data;
     }
 
     // =========================================
-    // ✅ BLOCKS BY DISTRICT
+    // BLOCKS
     // =========================================
     public List<Map<String, Object>> getBlocksByDistrict(String districtId) {
 
@@ -167,13 +191,6 @@ public class UserService {
 
         String url = "https://sitpolycab.fiberify.com/api/mini-geofences-by-masterGefenceId/" + districtId;
 
-        ResponseEntity<List> response = restTemplate.exchange(
-                url,
-                HttpMethod.GET,
-                entity,
-                List.class
-        );
-
-        return response.getBody();
+        return restTemplate.exchange(url, HttpMethod.GET, entity, List.class).getBody();
     }
 }
