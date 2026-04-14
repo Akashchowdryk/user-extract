@@ -1,21 +1,17 @@
 package com.user.userextract.dto;
 
-
+import java.util.List;
 
 public class UserSummaryDTO {
 
-    private Long id;
     private String login;
     private String name;
-    private String email;
-    private Boolean activated;
+    private String phone;
+    private boolean activated;
     private String reportingTo;
-	public Long getId() {
-		return id;
-	}
-	public void setId(Long id) {
-		this.id = id;
-	}
+    private List<String> roles;
+    private List<String> geofenceNames;
+    private String version;
 	public String getLogin() {
 		return login;
 	}
@@ -28,16 +24,16 @@ public class UserSummaryDTO {
 	public void setName(String name) {
 		this.name = name;
 	}
-	public String getEmail() {
-		return email;
+	public String getPhone() {
+		return phone;
 	}
-	public void setEmail(String email) {
-		this.email = email;
+	public void setPhone(String phone) {
+		this.phone = phone;
 	}
-	public Boolean getActivated() {
+	public boolean isActivated() {
 		return activated;
 	}
-	public void setActivated(Boolean activated) {
+	public void setActivated(boolean activated) {
 		this.activated = activated;
 	}
 	public String getReportingTo() {
@@ -46,6 +42,24 @@ public class UserSummaryDTO {
 	public void setReportingTo(String reportingTo) {
 		this.reportingTo = reportingTo;
 	}
+	public List<String> getRoles() {
+		return roles;
+	}
+	public void setRoles(List<String> roles) {
+		this.roles = roles;
+	}
+	public List<String> getGeofenceNames() {
+		return geofenceNames;
+	}
+	public void setGeofenceNames(List<String> geofenceNames) {
+		this.geofenceNames = geofenceNames;
+	}
+	public String getVersion() {
+		return version;
+	}
+	public void setVersion(String version) {
+		this.version = version;
+	}
 
-    // getters + setters
+    // getters & setters
 }

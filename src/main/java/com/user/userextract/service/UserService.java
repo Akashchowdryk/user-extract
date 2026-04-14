@@ -1,12 +1,12 @@
 package com.user.userextract.service;
 
+import com.user.userextract.dto.UserSummaryDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
-import java.util.concurrent.*;
 
 @Service
 public class UserService {
@@ -14,24 +14,23 @@ public class UserService {
     @Autowired
     private RestTemplate restTemplate;
 
+    // 🔥 YOUR TOKEN
     private final String token = "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJmaWJlcmlmeWluYyIsImF1dGgiOiJST0xFX0JBLFJPTEVfT0EsUk9MRV9QTEFOX0FETUlOLFJPTEVfUk9MTE9VVF9BRE1JTixST0xFX1JPTExPVVRfTUFOQUdFUixST0xFX1VTRVJfQURNSU4iLCJleHAiOjE3Nzc2Mjc3NTF9.FWiSwm1QAgBvPiDCJT2f0NaZOQHr6oGPo5Z12xvc_QW9XStX4WYkQB1zrm-fO73aV95WStvqgt-CPHFFi7vsDg";
 
-    private HttpEntity<String> getEntity() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("Authorization", "Bearer " + token);
-        return new HttpEntity<>(headers);
-    }
+    // =====================================================
+    // ✅ USERS SUMMARY (MAIN API)
+    // =====================================================
+    public List<UserSummaryDTO> getUsersSummary() {
 
-    // 🚀 FAST USERS SUMMARY (PARALLEL)
-    public List<Map<String, Object>> getAllUsers() {
-
-        List<Map<String, Object>> finalUsers = new ArrayList<>();
+        List<UserSummaryDTO> finalUsers = new ArrayList<>();
 
         int page = 0;
         int size = 50;
 
-        ExecutorService executor = Executors.newFixedThreadPool(20);
-        List<Future<Map<String, Object>>> futures = new ArrayList<>();
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + token);
+
+        HttpEntity<String> entity = new HttpEntity<>(headers);
 
         while (true) {
 
@@ -40,111 +39,130 @@ public class UserService {
             ResponseEntity<List> response = restTemplate.exchange(
                     url,
                     HttpMethod.GET,
-                    getEntity(),
+                    entity,
                     List.class
             );
 
             List<Map<String, Object>> users = response.getBody();
+
             if (users == null || users.isEmpty()) break;
 
             for (Map<String, Object> user : users) {
 
                 String login = (String) user.get("login");
 
-                futures.add(executor.submit(() -> {
+                // 🔥 CALL DETAIL API
+                String detailUrl = "https://sitpolycab.fiberify.com/api/users/" + login;
 
-                    try {
-                        String detailUrl = "https://sitpolycab.fiberify.com/api/users/" + login;
+                ResponseEntity<Map> detailResponse = restTemplate.exchange(
+                        detailUrl,
+                        HttpMethod.GET,
+                        entity,
+                        Map.class
+                );
 
-                        ResponseEntity<Map> detailRes = restTemplate.exchange(
-                                detailUrl,
-                                HttpMethod.GET,
-                                getEntity(),
-                                Map.class
-                        );
+                Map<String, Object> detail = detailResponse.getBody();
 
-                        Map<String, Object> detail = detailRes.getBody();
+                UserSummaryDTO dto = new UserSummaryDTO();
 
-                        Map<String, Object> summary = new HashMap<>();
+                // BASIC
+                dto.setLogin(login);
+                dto.setName(user.get("firstName") + " " + user.get("lastName"));
+                dto.setPhone((String) user.get("phone"));
+                dto.setActivated((Boolean) user.get("activated"));
 
-                        summary.put("login", detail.get("login"));
-                        summary.put("name", detail.get("firstName") + " " + detail.get("lastName"));
-                        summary.put("phone", detail.get("phone"));
-                        summary.put("activated", detail.get("activated"));
+                // ✅ ROLES
+                dto.setRoles((List<String>) user.get("authorities"));
 
-                        summary.put("geofenceIds",
-                                detail.get("geofences") != null
-                                        ? (List<Integer>) detail.get("geofences")
-                                        : new ArrayList<>());
+                // ✅ VERSION
+                dto.setVersion((String) user.get("applicationVersion"));
 
-                        summary.put("geofenceNames", detail.get("geofenceNames"));
+                // ✅ REPORTING TO
+                if (detail != null) {
+                    List<Map<String, Object>> ownedBy =
+                            (List<Map<String, Object>>) detail.get("ownedBy");
 
-                        summary.put("reportingTo",
-                                detail.get("ownedBy") != null
-                                        ? ((List<Map<String, Object>>) detail.get("ownedBy"))
-                                        .stream().map(x -> (String) x.get("login")).toList()
-                                        : new ArrayList<>());
-
-                        return summary;
-
-                    } catch (Exception e) {
-                        return null;
+                    if (ownedBy != null && !ownedBy.isEmpty()) {
+                        dto.setReportingTo((String) ownedBy.get(0).get("login"));
                     }
-                }));
+                }
+
+                // ✅ GEOFENCES
+                if (detail != null) {
+                    dto.setGeofenceNames(
+                            (List<String>) detail.get("geofenceNames")
+                    );
+                }
+
+                finalUsers.add(dto);
             }
 
             page++;
         }
 
-        for (Future<Map<String, Object>> f : futures) {
-            try {
-                Map<String, Object> user = f.get();
-                if (user != null) finalUsers.add(user);
-            } catch (Exception ignored) {}
-        }
-
-        executor.shutdown();
-
         return finalUsers;
     }
 
-    // ✅ FIX: USER DETAILS (USED BY FRONTEND CLICK)
-    public Map<String, Object> getUserDetails(String login) {
+    // =====================================================
+    // ✅ USER DETAILS (ON CLICK)
+    // =====================================================
+    public Map<String, Object> getUserWithGeofence(String login) {
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + token);
+
+        HttpEntity<String> entity = new HttpEntity<>(headers);
 
         String url = "https://sitpolycab.fiberify.com/api/users/" + login;
 
         ResponseEntity<Map> response = restTemplate.exchange(
                 url,
                 HttpMethod.GET,
-                getEntity(),
+                entity,
                 Map.class
         );
 
         return response.getBody();
     }
 
-    // ✅ DISTRICTS
+    // =====================================================
+    // ✅ DISTRICTS (MASTER GEOFENCES)
+    // =====================================================
     public List<Map<String, Object>> getDistricts() {
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + token);
+
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
         String url = "https://sitpolycab.fiberify.com/api/user-geofences-by-type-master";
 
         ResponseEntity<List> response = restTemplate.exchange(
                 url,
                 HttpMethod.GET,
-                getEntity(),
+                entity,
                 List.class
         );
 
         return response.getBody();
     }
 
-    // ✅ BLOCKS
-    public List<Map<String, Object>> getBlocks(Long id) {
-        String url = "https://sitpolycab.fiberify.com/api/mini-geofences-by-masterGefenceId/" + id;
+    // =====================================================
+    // ✅ BLOCKS BY DISTRICT
+    // =====================================================
+    public List<Map<String, Object>> getBlocksByDistrict(String districtId) {
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + token);
+
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        String url = "https://sitpolycab.fiberify.com/api/mini-geofences-by-masterGefenceId/" + districtId;
 
         ResponseEntity<List> response = restTemplate.exchange(
                 url,
                 HttpMethod.GET,
-                getEntity(),
+                entity,
                 List.class
         );
 
