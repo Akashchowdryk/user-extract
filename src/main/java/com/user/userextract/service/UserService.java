@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
+import java.util.concurrent.*;
 
 @Service
 public class UserService {
@@ -14,12 +15,11 @@ public class UserService {
     @Autowired
     private RestTemplate restTemplate;
 
-    // 🔥 YOUR TOKEN
     private final String token = "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJmaWJlcmlmeWluYyIsImF1dGgiOiJST0xFX0JBLFJPTEVfT0EsUk9MRV9QTEFOX0FETUlOLFJPTEVfUk9MTE9VVF9BRE1JTixST0xFX1JPTExPVVRfTUFOQUdFUixST0xFX1VTRVJfQURNSU4iLCJleHAiOjE3Nzc2Mjc3NTF9.FWiSwm1QAgBvPiDCJT2f0NaZOQHr6oGPo5Z12xvc_QW9XStX4WYkQB1zrm-fO73aV95WStvqgt-CPHFFi7vsDg";
 
-    // =====================================================
-    // ✅ USERS SUMMARY (MAIN API)
-    // =====================================================
+    // 🔥 THREAD POOL (IMPORTANT)
+    private final ExecutorService executor = Executors.newFixedThreadPool(15);
+
     public List<UserSummaryDTO> getUsersSummary() {
 
         List<UserSummaryDTO> finalUsers = new ArrayList<>();
@@ -29,7 +29,6 @@ public class UserService {
 
         HttpHeaders headers = new HttpHeaders();
         headers.set("Authorization", "Bearer " + token);
-
         HttpEntity<String> entity = new HttpEntity<>(headers);
 
         while (true) {
@@ -44,57 +43,75 @@ public class UserService {
             );
 
             List<Map<String, Object>> users = response.getBody();
-
             if (users == null || users.isEmpty()) break;
+
+            // 🔥 PARALLEL TASKS
+            List<CompletableFuture<UserSummaryDTO>> futures = new ArrayList<>();
 
             for (Map<String, Object> user : users) {
 
-                String login = (String) user.get("login");
+                futures.add(CompletableFuture.supplyAsync(() -> {
 
-                // 🔥 CALL DETAIL API
-                String detailUrl = "https://sitpolycab.fiberify.com/api/users/" + login;
+                    try {
+                        String login = (String) user.get("login");
 
-                ResponseEntity<Map> detailResponse = restTemplate.exchange(
-                        detailUrl,
-                        HttpMethod.GET,
-                        entity,
-                        Map.class
-                );
+                        String detailUrl = "https://sitpolycab.fiberify.com/api/users/" + login;
 
-                Map<String, Object> detail = detailResponse.getBody();
+                        ResponseEntity<Map> detailResponse = restTemplate.exchange(
+                                detailUrl,
+                                HttpMethod.GET,
+                                entity,
+                                Map.class
+                        );
 
-                UserSummaryDTO dto = new UserSummaryDTO();
+                        Map<String, Object> detail = detailResponse.getBody();
 
-                // BASIC
-                dto.setLogin(login);
-                dto.setName(user.get("firstName") + " " + user.get("lastName"));
-                dto.setPhone((String) user.get("phone"));
-                dto.setActivated((Boolean) user.get("activated"));
+                        UserSummaryDTO dto = new UserSummaryDTO();
 
-                // ✅ ROLES
-                dto.setRoles((List<String>) user.get("authorities"));
+                        dto.setLogin(login);
+                        dto.setName(user.get("firstName") + " " + user.get("lastName"));
+                        dto.setPhone((String) user.get("phone"));
+                        dto.setActivated((Boolean) user.get("activated"));
 
-                // ✅ VERSION
-                dto.setVersion((String) user.get("applicationVersion"));
+                        // ROLES
+                        dto.setRoles((List<String>) user.get("authorities"));
 
-                // ✅ REPORTING TO
-                if (detail != null) {
-                    List<Map<String, Object>> ownedBy =
-                            (List<Map<String, Object>>) detail.get("ownedBy");
+                        // VERSION
+                        dto.setVersion((String) user.get("applicationVersion"));
 
-                    if (ownedBy != null && !ownedBy.isEmpty()) {
-                        dto.setReportingTo((String) ownedBy.get(0).get("login"));
+                        // REPORTING TO
+                        if (detail != null) {
+                            List<Map<String, Object>> ownedBy =
+                                    (List<Map<String, Object>>) detail.get("ownedBy");
+
+                            if (ownedBy != null && !ownedBy.isEmpty()) {
+                                dto.setReportingTo((String) ownedBy.get(0).get("login"));
+                            }
+
+                            // GEOFENCES
+                            dto.setGeofenceNames(
+                                    (List<String>) detail.get("geofenceNames")
+                            );
+                        }
+
+                        return dto;
+
+                    } catch (Exception e) {
+                        System.out.println("Error for user: " + user.get("login"));
+                        return null;
                     }
-                }
 
-                // ✅ GEOFENCES
-                if (detail != null) {
-                    dto.setGeofenceNames(
-                            (List<String>) detail.get("geofenceNames")
-                    );
-                }
+                }, executor));
+            }
 
-                finalUsers.add(dto);
+            // 🔥 WAIT FOR ALL TASKS
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+            for (CompletableFuture<UserSummaryDTO> future : futures) {
+                try {
+                    UserSummaryDTO dto = future.get();
+                    if (dto != null) finalUsers.add(dto);
+                } catch (Exception ignored) {}
             }
 
             page++;
@@ -103,9 +120,9 @@ public class UserService {
         return finalUsers;
     }
 
-    // =====================================================
-    // ✅ USER DETAILS (ON CLICK)
-    // =====================================================
+    // =========================================
+    // USER DETAILS
+    // =========================================
     public Map<String, Object> getUserWithGeofence(String login) {
 
         HttpHeaders headers = new HttpHeaders();
@@ -125,9 +142,9 @@ public class UserService {
         return response.getBody();
     }
 
-    // =====================================================
-    // ✅ DISTRICTS (MASTER GEOFENCES)
-    // =====================================================
+    // =========================================
+    // DISTRICTS
+    // =========================================
     public List<Map<String, Object>> getDistricts() {
 
         HttpHeaders headers = new HttpHeaders();
@@ -147,9 +164,9 @@ public class UserService {
         return response.getBody();
     }
 
-    // =====================================================
-    // ✅ BLOCKS BY DISTRICT
-    // =====================================================
+    // =========================================
+    // BLOCKS
+    // =========================================
     public List<Map<String, Object>> getBlocksByDistrict(String districtId) {
 
         HttpHeaders headers = new HttpHeaders();
