@@ -47,7 +47,7 @@ public class UserService {
 
         while (true) {
 
-            String url = "https://polycab.fiberify.com/api/users?page=" + page + "&size=" + size;
+            String url = "https://sitpolycab.fiberify.com/api/users?page=" + page + "&size=" + size;
 
             ResponseEntity<List> response = restTemplate.exchange(
                     url,
