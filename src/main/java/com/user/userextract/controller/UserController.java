@@ -5,6 +5,8 @@ import com.user.userextract.service.UserService;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import com.user.userextract.dto.UserEditDTO;
+import org.springframework.http.ResponseEntity;
 
 import java.util.List;
 import java.util.Map;
@@ -39,5 +41,26 @@ public class UserController {
     @GetMapping("/blocks/{districtId}")
     public List<Map<String, Object>> getBlocks(@PathVariable String districtId) {
         return userService.getBlocksByDistrict(districtId);
+    }
+    @PutMapping("/edit-user")
+    public ResponseEntity<?> updateUser(@RequestBody UserEditDTO dto) {
+        return ResponseEntity.ok(userService.updateUser(dto));
+    }
+ // ✅ ROLES
+    @GetMapping("/roles")
+    public Object getRoles() {
+        return userService.getRoles();
+    }
+
+    // ✅ REPORTING USERS
+    @GetMapping("/reporting-users")
+    public Object getReportingUsers() {
+        return userService.getReportingUsers();
+    }
+
+    // ✅ GEOFENCES
+    @GetMapping("/geofences")
+    public Object getGeofences() {
+        return userService.getGeofences();
     }
 }

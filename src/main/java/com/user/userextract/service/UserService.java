@@ -5,6 +5,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import com.user.userextract.dto.UserEditDTO;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
 
 import java.util.*;
 import java.util.concurrent.*;
@@ -193,4 +197,90 @@ public class UserService {
 
         return restTemplate.exchange(url, HttpMethod.GET, entity, List.class).getBody();
     }
+    public Object updateUser(UserEditDTO dto) {
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Authorization", "Bearer " + token);
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        // 🔥 BUILD PAYLOAD
+        Map<String, Object> payload = new HashMap<>();
+
+        payload.put("id", dto.getId());
+        payload.put("login", dto.getLogin());
+        payload.put("firstName", dto.getFirstName());
+        payload.put("lastName", dto.getLastName());
+        payload.put("email", dto.getEmail());
+        payload.put("phone", dto.getPhone());
+        payload.put("gpsimei", dto.getGpsimei());
+        payload.put("authorities", dto.getAuthorities());
+
+        // ✅ geofences → [{id:123}]
+        List<Map<String, Long>> geoList = new ArrayList<>();
+        if (dto.getGeofences() != null) {
+            for (Long id : dto.getGeofences()) {
+                geoList.add(Map.of("id", id));
+            }
+        }
+        payload.put("geofences", geoList);
+
+        // ✅ reportingTo → ownedBy
+        if (dto.getReportingTo() != null) {
+            payload.put("ownedBy",
+                    List.of(Map.of("id", dto.getReportingTo()))
+            );
+        }
+
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+
+        String url = "https://sitpolycab.fiberify.com/api/users";
+
+        // 🔥 CALL PUT API
+        ResponseEntity<Object> response = restTemplate.exchange(
+                url,
+                HttpMethod.PUT,
+                entity,
+                Object.class
+        );
+
+        return response.getBody();
+    }
+ // ================================
+ // ✅ ROLES
+ // ================================
+ public Object getRoles() {
+     return callGetApi("https://sitpolycab.fiberify.com/api/configs/Roles");
+ }
+
+ // ================================
+ // ✅ REPORTING USERS
+ // ================================
+ public Object getReportingUsers() {
+     return callGetApi("https://sitpolycab.fiberify.com/api/reporting-users");
+ }
+
+ // ================================
+ // ✅ GEOFENCES
+ // ================================
+ public Object getGeofences() {
+     return callGetApi("https://sitpolycab.fiberify.com/api/master-mini-geofences");
+ }
+
+ // ================================
+ // 🔥 COMMON API CALL METHOD
+ // ================================
+ private Object callGetApi(String url) {
+
+     HttpHeaders headers = new HttpHeaders();
+     headers.set("Authorization", "Bearer " + token);
+
+     HttpEntity<String> entity = new HttpEntity<>(headers);
+
+     return restTemplate.exchange(
+             url,
+             HttpMethod.GET,
+             entity,
+             Object.class
+     ).getBody();
+ }
 }
