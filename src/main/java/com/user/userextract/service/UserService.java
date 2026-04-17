@@ -203,7 +203,6 @@ public class UserService {
         headers.set("Authorization", "Bearer " + token);
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        // 🔥 BUILD PAYLOAD
         Map<String, Object> payload = new HashMap<>();
 
         payload.put("id", dto.getId());
@@ -213,9 +212,15 @@ public class UserService {
         payload.put("email", dto.getEmail());
         payload.put("phone", dto.getPhone());
         payload.put("gpsimei", dto.getGpsimei());
+
+        // ✅ IMPORTANT
+        payload.put("activated", true);
+        payload.put("langKey", "en");
+
+        // ✅ FIXED AUTHORITIES
         payload.put("authorities", dto.getAuthorities());
 
-        // ✅ geofences → [{id:123}]
+        // ✅ GEOFENCES
         List<Map<String, Long>> geoList = new ArrayList<>();
         if (dto.getGeofences() != null) {
             for (Long id : dto.getGeofences()) {
@@ -224,18 +229,17 @@ public class UserService {
         }
         payload.put("geofences", geoList);
 
-        // ✅ reportingTo → ownedBy
+        // ✅ REPORTING
         if (dto.getReportingTo() != null) {
-            payload.put("ownedBy",
-                    List.of(Map.of("id", dto.getReportingTo()))
-            );
+            payload.put("ownedBy", List.of(Map.of("id", dto.getReportingTo())));
         }
+
+        System.out.println("🔥 FINAL PAYLOAD: " + payload);
 
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
 
         String url = "https://sitpolycab.fiberify.com/api/users";
 
-        // 🔥 CALL PUT API
         ResponseEntity<Object> response = restTemplate.exchange(
                 url,
                 HttpMethod.PUT,

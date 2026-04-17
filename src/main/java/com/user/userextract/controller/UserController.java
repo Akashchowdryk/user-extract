@@ -7,6 +7,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import com.user.userextract.dto.UserEditDTO;
 import org.springframework.http.ResponseEntity;
+import java.util.Map;
+import org.springframework.http.HttpStatus;
 
 import java.util.List;
 import java.util.Map;
@@ -44,7 +46,20 @@ public class UserController {
     }
     @PutMapping("/edit-user")
     public ResponseEntity<?> updateUser(@RequestBody UserEditDTO dto) {
-        return ResponseEntity.ok(userService.updateUser(dto));
+        try {
+            Object response = userService.updateUser(dto);
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+
+            return ResponseEntity
+                    .status(500)
+                    .body(Map.of(
+                            "status", "FAILED",
+                            "message", e.getMessage()
+                    ));
+        }
     }
  // ✅ ROLES
     @GetMapping("/roles")
