@@ -203,45 +203,60 @@ public class UserService {
         headers.set("Authorization", "Bearer " + token);
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        Map<String, Object> payload = new HashMap<>();
+        // 🔥 STEP 1: GET EXISTING USER (IMPORTANT)
+        String getUrl = "https://sitpolycab.fiberify.com/api/users/" + dto.getLogin();
 
-        payload.put("id", dto.getId());
-        payload.put("login", dto.getLogin());
-        payload.put("firstName", dto.getFirstName());
-        payload.put("lastName", dto.getLastName());
-        payload.put("email", dto.getEmail());
-        payload.put("phone", dto.getPhone());
-        payload.put("gpsimei", dto.getGpsimei());
+        HttpEntity<String> getEntity = new HttpEntity<>(headers);
 
-        // ✅ IMPORTANT
-        payload.put("activated", true);
-        payload.put("langKey", "en");
+        Map<String, Object> existingUser = restTemplate.exchange(
+                getUrl,
+                HttpMethod.GET,
+                getEntity,
+                Map.class
+        ).getBody();
 
-        // ✅ FIXED AUTHORITIES
-        payload.put("authorities", dto.getAuthorities());
+        if (existingUser == null) {
+            throw new RuntimeException("User not found");
+        }
 
-        // ✅ GEOFENCES
+        // 🔥 STEP 2: UPDATE ONLY REQUIRED FIELDS
+
+        existingUser.put("firstName", dto.getFirstName());
+        existingUser.put("lastName", dto.getLastName());
+        existingUser.put("email", dto.getEmail());
+        existingUser.put("phone", dto.getPhone());
+        existingUser.put("gpsimei", dto.getGpsimei());
+
+        // ✅ authorities
+        existingUser.put("authorities", dto.getAuthorities());
+
+        // ✅ geofences
         List<Map<String, Long>> geoList = new ArrayList<>();
         if (dto.getGeofences() != null) {
             for (Long id : dto.getGeofences()) {
                 geoList.add(Map.of("id", id));
             }
         }
-        payload.put("geofences", geoList);
+        existingUser.put("geofences", geoList);
 
-        // ✅ REPORTING
+        // ✅ reporting
         if (dto.getReportingTo() != null) {
-            payload.put("ownedBy", List.of(Map.of("id", dto.getReportingTo())));
+            existingUser.put("ownedBy",
+                    List.of(Map.of("id", dto.getReportingTo()))
+            );
         }
 
-        System.out.println("🔥 FINAL PAYLOAD: " + payload);
+        // 🔥 STEP 3: PUT FULL OBJECT
 
-        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+        HttpEntity<Map<String, Object>> entity =
+                new HttpEntity<>(existingUser, headers);
 
-        String url = "https://sitpolycab.fiberify.com/api/users";
+        String putUrl = "https://sitpolycab.fiberify.com/api/users";
+
+        System.out.println("🔥 FINAL FULL PAYLOAD: " + existingUser);
 
         ResponseEntity<Object> response = restTemplate.exchange(
-                url,
+                putUrl,
                 HttpMethod.PUT,
                 entity,
                 Object.class
