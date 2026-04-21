@@ -281,9 +281,35 @@ public class UserService {
  // ================================
  // ✅ GEOFENCES
  // ================================
- public Object getGeofences() {
-     return callGetApi("https://sitpolycab.fiberify.com/api/master-mini-geofences");
- }
+ public Map<String, Object> getGeofences() {
+
+	    List<Map<String, Object>> all =
+	            (List<Map<String, Object>>) callGetApi(
+	                    "https://sitpolycab.fiberify.com/api/master-mini-geofences"
+	            );
+
+	    List<Map<String, Object>> masters = new ArrayList<>();
+	    List<Map<String, Object>> minis = new ArrayList<>();
+
+	    if (all != null) {
+	        for (Map<String, Object> g : all) {
+
+	            String type = (String) g.get("geofenceType");
+
+	            if ("MASTER".equalsIgnoreCase(type)) {
+	                masters.add(g);
+	            } else if ("MINI".equalsIgnoreCase(type)) {
+	                minis.add(g);
+	            }
+	        }
+	    }
+
+	    Map<String, Object> result = new HashMap<>();
+	    result.put("masters", masters);
+	    result.put("minis", minis);
+
+	    return result;
+	}
 
  // ================================
  // 🔥 COMMON API CALL METHOD
