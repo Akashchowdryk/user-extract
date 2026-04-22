@@ -12,8 +12,17 @@ public class UserEditDTO {
     private String email;
     private String phone;
     private String gpsimei;
+    private Boolean activated;
 
-    private List<String> authorities;
+    public Boolean getActivated() {
+		return activated;
+	}
+
+	public void setActivated(Boolean activated) {
+		this.activated = activated;
+	}
+
+	private List<String> authorities;
     private List<Long> geofences;
 
     private Long reportingTo;

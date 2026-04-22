@@ -226,6 +226,9 @@ public class UserService {
         existingUser.put("email", dto.getEmail());
         existingUser.put("phone", dto.getPhone());
         existingUser.put("gpsimei", dto.getGpsimei());
+        if (dto.getActivated() != null) {
+            existingUser.put("activated", dto.getActivated());
+        }
 
         // ✅ authorities
         existingUser.put("authorities", dto.getAuthorities());
