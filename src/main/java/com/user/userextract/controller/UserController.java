@@ -1,6 +1,6 @@
 package com.user.userextract.controller;
 
-import com.user.userextract.dto.UserSummaryDTO;
+import com.user.userextract.dto.*;
 import com.user.userextract.service.UserService;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -77,5 +77,9 @@ public class UserController {
     @GetMapping("/geofences")
     public Object getGeofences() {
         return userService.getGeofences();
+    }
+    @PutMapping("/bulk-update-reporting")
+    public ResponseEntity<?> bulkUpdate(@RequestBody BulkUpdateDTO dto) {
+        return ResponseEntity.ok(userService.bulkUpdateReporting(dto));
     }
 }

@@ -1,6 +1,7 @@
 package com.user.userextract.service;
 
 import com.user.userextract.dto.UserSummaryDTO;
+import com.user.userextract.dto.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -11,6 +12,10 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 
 import java.util.*;
+import java.util.Map;
+import java.util.List;
+import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.concurrent.*;
 
 @Service
@@ -331,4 +336,52 @@ public class UserService {
              Object.class
      ).getBody();
  }
+ public Object bulkUpdateReporting(BulkUpdateDTO dto) {
+
+	    List<String> logins = dto.getLogins();
+	    Long reportingId = dto.getReportingTo();
+
+	    for (String login : logins) {
+
+	        // fetch user
+	    	Map<String, Object> user = (Map<String, Object>) callGetApi(
+	    		    "https://sitpolycab.fiberify.com/api/users/" + login
+	    		);
+
+	        // update reporting
+	    	Map<String, Object> reporting = new HashMap<>();
+	    	reporting.put("id", reportingId);
+
+	    	List<Map<String, Object>> ownedBy = new ArrayList<>();
+	    	ownedBy.add(reporting);
+
+	    	user.put("ownedBy", ownedBy);
+
+	        // call PUT API
+	        callPutApi(
+	            "https://sitpolycab.fiberify.com/api/users",
+	            user
+	        );
+	    }
+
+	    return Map.of(
+	        "status", "SUCCESS",
+	        "updatedUsers", logins
+	    );
+	}
+ private void callPutApi(String url, Object body) {
+
+	    HttpHeaders headers = new HttpHeaders();
+	    headers.set("Authorization", "Bearer " + token);
+	    headers.setContentType(MediaType.APPLICATION_JSON);
+
+	    HttpEntity<Object> entity = new HttpEntity<>(body, headers);
+
+	    restTemplate.exchange(
+	        url,
+	        HttpMethod.PUT,
+	        entity,
+	        Object.class
+	    );
+	}
 }
