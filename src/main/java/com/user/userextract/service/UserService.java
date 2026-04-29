@@ -384,4 +384,42 @@ public class UserService {
 	        Object.class
 	    );
 	}
+ public List<Map<String, Object>> getUserHierarchy() {
+
+	    List<Map<String, Object>> users =
+	        (List<Map<String, Object>>) callGetApi("https://sitpolycab.fiberify.com/api/users");
+
+	    Map<Long, Map<String, Object>> userMap = new HashMap<>();
+
+	    // Step 1: Prepare map
+	    for (Map<String, Object> u : users) {
+	        u.put("children", new ArrayList<>());
+	        userMap.put(((Number) u.get("id")).longValue(), u);
+	    }
+
+	    List<Map<String, Object>> roots = new ArrayList<>();
+
+	    // Step 2: Build tree
+	    for (Map<String, Object> u : users) {
+
+	        List<Map<String, Object>> ownedBy = (List<Map<String, Object>>) u.get("ownedBy");
+
+	        if (ownedBy != null && !ownedBy.isEmpty()) {
+
+	            Long parentId = ((Number) ownedBy.get(0).get("id")).longValue();
+	            Map<String, Object> parent = userMap.get(parentId);
+
+	            if (parent != null) {
+	                ((List<Map<String, Object>>) parent.get("children")).add(u);
+	            } else {
+	                roots.add(u);
+	            }
+
+	        } else {
+	            roots.add(u); // top-level
+	        }
+	    }
+
+	    return roots;
+	}
 }
