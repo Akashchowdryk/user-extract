@@ -386,8 +386,22 @@ public class UserService {
 	}
  public List<Map<String, Object>> getUserHierarchy() {
 
-	    List<Map<String, Object>> users =
-	        (List<Map<String, Object>>) callGetApi("https://sitpolycab.fiberify.com/api/users");
+	 List<Map<String, Object>> users = new ArrayList<>();
+
+	 List<Map<String, Object>> rawUsers =
+	     (List<Map<String, Object>>) callGetApi("https://sitpolycab.fiberify.com/api/users");
+
+	 for (Map<String, Object> u : rawUsers) {
+
+	     String login = (String) u.get("login");
+
+	     Map<String, Object> fullUser =
+	         (Map<String, Object>) callGetApi(
+	             "https://sitpolycab.fiberify.com/api/users/" + login
+	         );
+
+	     users.add(fullUser);
+	 }
 
 	    Map<Long, Map<String, Object>> userMap = new HashMap<>();
 
