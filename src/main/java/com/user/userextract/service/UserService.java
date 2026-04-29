@@ -384,43 +384,58 @@ public class UserService {
 	        Object.class
 	    );
 	}
- public List<Map<String, Object>> getUserHierarchy() {
+ public List<Map<String, Object>> getRootUsers() {
 
-	    List<Map<String, Object>> rawUsers =
-	        (List<Map<String, Object>>) callGetApi(
-	            "https://user-extract.onrender.com/api/users-summary"
-	        );
-
-	    Map<String, Map<String, Object>> userMap = new HashMap<>();
-
-	    // Step 1: prepare map
-	    for (Map<String, Object> u : rawUsers) {
-	        u.put("children", new ArrayList<>());
-	        userMap.put((String) u.get("login"), u);
-	    }
+	    List<Map<String, Object>> users = getAllUsers();
 
 	    List<Map<String, Object>> roots = new ArrayList<>();
 
-	    // Step 2: build tree
-	    for (Map<String, Object> u : rawUsers) {
+	    for (Map<String, Object> u : users) {
 
-	        String parentLogin = (String) u.get("reportingTo");
+	        String reportingTo = (String) u.get("reportingTo");
 
-	        if (parentLogin != null && !parentLogin.isEmpty()) {
-
-	            Map<String, Object> parent = userMap.get(parentLogin);
-
-	            if (parent != null) {
-	                ((List<Map<String, Object>>) parent.get("children")).add(u);
-	            } else {
-	                roots.add(u);
-	            }
-
-	        } else {
-	            roots.add(u); // top-level users
+	        if (reportingTo == null || reportingTo.isEmpty()) {
+	            u.put("hasChildren", hasChildren(users, (String) u.get("login")));
+	            roots.add(u);
 	        }
 	    }
 
 	    return roots;
+	}
+ public List<Map<String, Object>> getChildren(String login) {
+
+	    List<Map<String, Object>> users = getAllUsers();
+
+	    List<Map<String, Object>> children = new ArrayList<>();
+
+	    for (Map<String, Object> u : users) {
+
+	        String reportingTo = (String) u.get("reportingTo");
+
+	        if (login.equals(reportingTo)) {
+
+	            u.put("hasChildren", hasChildren(users, (String) u.get("login")));
+	            children.add(u);
+	        }
+	    }
+
+	    return children;
+	}
+ private boolean hasChildren(List<Map<String, Object>> users, String login) {
+
+	    for (Map<String, Object> u : users) {
+	        String reportingTo = (String) u.get("reportingTo");
+
+	        if (login.equals(reportingTo)) {
+	            return true;
+	        }
+	    }
+
+	    return false;
+	}
+ public List<Map<String, Object>> getAllUsers() {
+	    return (List<Map<String, Object>>) callGetApi(
+	        "https://user-extract.onrender.com/api/users-summary"
+	    );
 	}
 }
