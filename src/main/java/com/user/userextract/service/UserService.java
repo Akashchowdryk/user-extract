@@ -387,7 +387,6 @@ public class UserService {
  public List<Map<String, Object>> getRootUsers() {
 
 	    List<Map<String, Object>> users = getAllUsers();
-
 	    List<Map<String, Object>> roots = new ArrayList<>();
 
 	    for (Map<String, Object> u : users) {
@@ -434,8 +433,21 @@ public class UserService {
 	    return false;
 	}
  public List<Map<String, Object>> getAllUsers() {
-	    return (List<Map<String, Object>>) callGetApi(
-	        "https://user-extract.onrender.com/api/users-summary"
-	    );
+
+	    List<UserSummaryDTO> dtos = getUsersSummary();
+
+	    List<Map<String, Object>> users = new ArrayList<>();
+
+	    for (UserSummaryDTO dto : dtos) {
+
+	        Map<String, Object> map = new HashMap<>();
+
+	        map.put("login", dto.getLogin());
+	        map.put("reportingTo", dto.getReportingTo());
+
+	        users.add(map);
+	    }
+
+	    return users;
 	}
 }

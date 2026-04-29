@@ -82,4 +82,13 @@ public class UserController {
     public ResponseEntity<?> bulkUpdate(@RequestBody BulkUpdateDTO dto) {
         return ResponseEntity.ok(userService.bulkUpdateReporting(dto));
     }
+    @GetMapping("/hierarchy/root")
+    public List<Map<String, Object>> getRootUsers() {
+        return userService.getRootUsers();
+    }
+
+    @GetMapping("/hierarchy/children/{login}")
+    public List<Map<String, Object>> getChildren(@PathVariable String login) {
+        return userService.getChildren(login);
+    }
 }
