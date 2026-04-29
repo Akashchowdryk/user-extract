@@ -269,6 +269,8 @@ public class UserService {
                 entity,
                 Object.class
         );
+        cachedUsers = new ArrayList<>();
+        lastFetchTime = 0;
 
         return response.getBody();
     }
@@ -363,11 +365,13 @@ public class UserService {
 	            user
 	        );
 	    }
-
+	    cachedUsers = new ArrayList<>();
+	    lastFetchTime = 0;
 	    return Map.of(
 	        "status", "SUCCESS",
 	        "updatedUsers", logins
 	    );
+	    
 	}
  private void callPutApi(String url, Object body) {
 
