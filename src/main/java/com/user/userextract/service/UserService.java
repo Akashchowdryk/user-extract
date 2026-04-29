@@ -391,10 +391,12 @@ public class UserService {
 
 	    for (Map<String, Object> u : users) {
 
-	        String reportingTo = (String) u.get("reportingTo");
+	        String login = (String) u.get("login");
 
-	        if (reportingTo == null || reportingTo.isEmpty()) {
-	            u.put("hasChildren", hasChildren(users, (String) u.get("login")));
+	        // ✅ MAKE THIS YOUR ROOT
+	        if ("fiberifyinc".equalsIgnoreCase(login)) {
+
+	            u.put("hasChildren", hasChildren(users, login));
 	            roots.add(u);
 	        }
 	    }
