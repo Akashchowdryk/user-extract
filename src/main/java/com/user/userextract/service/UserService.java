@@ -386,42 +386,29 @@ public class UserService {
 	}
  public List<Map<String, Object>> getUserHierarchy() {
 
-	 List<Map<String, Object>> users = new ArrayList<>();
+	    List<Map<String, Object>> rawUsers =
+	        (List<Map<String, Object>>) callGetApi(
+	            "https://user-extract.onrender.com/api/users-summary"
+	        );
 
-	 List<Map<String, Object>> rawUsers =
-	     (List<Map<String, Object>>) callGetApi("https://sitpolycab.fiberify.com/api/users");
+	    Map<String, Map<String, Object>> userMap = new HashMap<>();
 
-	 for (Map<String, Object> u : rawUsers) {
-
-	     String login = (String) u.get("login");
-
-	     Map<String, Object> fullUser =
-	         (Map<String, Object>) callGetApi(
-	             "https://sitpolycab.fiberify.com/api/users/" + login
-	         );
-
-	     users.add(fullUser);
-	 }
-
-	    Map<Long, Map<String, Object>> userMap = new HashMap<>();
-
-	    // Step 1: Prepare map
-	    for (Map<String, Object> u : users) {
+	    // Step 1: prepare map
+	    for (Map<String, Object> u : rawUsers) {
 	        u.put("children", new ArrayList<>());
-	        userMap.put(((Number) u.get("id")).longValue(), u);
+	        userMap.put((String) u.get("login"), u);
 	    }
 
 	    List<Map<String, Object>> roots = new ArrayList<>();
 
-	    // Step 2: Build tree
-	    for (Map<String, Object> u : users) {
+	    // Step 2: build tree
+	    for (Map<String, Object> u : rawUsers) {
 
-	        List<Map<String, Object>> ownedBy = (List<Map<String, Object>>) u.get("ownedBy");
+	        String parentLogin = (String) u.get("reportingTo");
 
-	        if (ownedBy != null && !ownedBy.isEmpty()) {
+	        if (parentLogin != null && !parentLogin.isEmpty()) {
 
-	            Long parentId = ((Number) ownedBy.get(0).get("id")).longValue();
-	            Map<String, Object> parent = userMap.get(parentId);
+	            Map<String, Object> parent = userMap.get(parentLogin);
 
 	            if (parent != null) {
 	                ((List<Map<String, Object>>) parent.get("children")).add(u);
@@ -430,7 +417,7 @@ public class UserService {
 	            }
 
 	        } else {
-	            roots.add(u); // top-level
+	            roots.add(u); // top-level users
 	        }
 	    }
 
