@@ -24,7 +24,7 @@ public class UserService {
     @Autowired
     private RestTemplate restTemplate;
 
-    private final String token = "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJmaWJlcmlmeWluYyIsImF1dGgiOiJST0xFX0JBLFJPTEVfT0EsUk9MRV9QTEFOX0FETUlOLFJPTEVfUk9MTE9VVF9BRE1JTixST0xFX1JPTExPVVRfTUFOQUdFUixST0xFX1VTRVJfQURNSU4iLCJleHAiOjE3ODA0NjYwMDV9.cmZyqBLgTnReI6BavLo0zc0KC3eLAIKoacb2ZyqhVOttg_2svHk4DXAeafTEQY-v5NGlVrXEacNQykYx5RKbJg";
+    private final String token = "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJmaWJlcmlmeWluYyIsImF1dGgiOiJST0xFX0JBLFJPTEVfT0EsUk9MRV9QTEFOX0FETUlOLFJPTEVfUk9MTE9VVF9BRE1JTixST0xFX1JPTExPVVRfTUFOQUdFUixST0xFX1VTRVJfQURNSU4iLCJleHAiOjE3Nzk1MTY3NDR9.wI-HtYPYD0YH5rIwBV52igRD_5wyc5KvpsJHWVMNtRdeaqmPATHFvOSDdZRar4sMekhzd-qTpAPdonIWdPr_2g";
 
     // 🔥 THREAD POOL
     private final ExecutorService executor = Executors.newFixedThreadPool(10);
@@ -56,7 +56,7 @@ public class UserService {
 
         while (true) {
 
-            String url = "https://polycab.fiberify.com/api/users?page=" + page + "&size=" + size;
+            String url = "https://sitpolycab.fiberify.com/api/users?page=" + page + "&size=" + size;
 
             ResponseEntity<List> response = restTemplate.exchange(
                     url,
@@ -88,7 +88,7 @@ public class UserService {
                         dto.setVersion((String) user.get("applicationVersion"));
 
                         // 🔥 DETAIL API (IMPORTANT)
-                        String detailUrl = "https://polycab.fiberify.com/api/users/" + login;
+                        String detailUrl = "https://sitpolycab.fiberify.com/api/users/" + login;
 
                         ResponseEntity<Map> detailRes = restTemplate.exchange(
                                 detailUrl,
@@ -152,7 +152,7 @@ public class UserService {
 
         HttpEntity<String> entity = new HttpEntity<>(headers);
 
-        String url = "https://polycab.fiberify.com/api/users/" + login;
+        String url = "https://sitpolycab.fiberify.com/api/users/" + login;
 
         return restTemplate.exchange(url, HttpMethod.GET, entity, Map.class).getBody();
     }
@@ -176,7 +176,7 @@ public class UserService {
 
         HttpEntity<String> entity = new HttpEntity<>(headers);
 
-        String url = "https://polycab.fiberify.com/api/user-geofences-by-type-master";
+        String url = "https://sitpolycab.fiberify.com/api/user-geofences-by-type-master";
 
         List<Map<String, Object>> data = restTemplate.exchange(
                 url, HttpMethod.GET, entity, List.class
@@ -198,7 +198,7 @@ public class UserService {
 
         HttpEntity<String> entity = new HttpEntity<>(headers);
 
-        String url = "https://polycab.fiberify.com/api/mini-geofences-by-masterGefenceId/" + districtId;
+        String url = "https://sitpolycab.fiberify.com/api/mini-geofences-by-masterGefenceId/" + districtId;
 
         return restTemplate.exchange(url, HttpMethod.GET, entity, List.class).getBody();
     }
@@ -209,7 +209,7 @@ public class UserService {
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         // 🔥 STEP 1: GET EXISTING USER (IMPORTANT)
-        String getUrl = "https://polycab.fiberify.com/api/users/" + dto.getLogin();
+        String getUrl = "https://sitpolycab.fiberify.com/api/users/" + dto.getLogin();
 
         HttpEntity<String> getEntity = new HttpEntity<>(headers);
 
@@ -259,7 +259,7 @@ public class UserService {
         HttpEntity<Map<String, Object>> entity =
                 new HttpEntity<>(existingUser, headers);
 
-        String putUrl = "https://polycab.fiberify.com/api/users";
+        String putUrl = "https://sitpolycab.fiberify.com/api/users";
 
         System.out.println("🔥 FINAL FULL PAYLOAD: " + existingUser);
 
@@ -278,14 +278,14 @@ public class UserService {
  // ✅ ROLES
  // ================================
  public Object getRoles() {
-     return callGetApi("https://polycab.fiberify.com/api/configs/Roles");
+     return callGetApi("https://sitpolycab.fiberify.com/api/configs/Roles");
  }
 
  // ================================
  // ✅ REPORTING USERS
  // ================================
  public Object getReportingUsers() {
-     return callGetApi("https://polycab.fiberify.com/api/reporting-users");
+     return callGetApi("https://sitpolycab.fiberify.com/api/reporting-users");
  }
 
  // ================================
@@ -295,7 +295,7 @@ public class UserService {
 
 	    List<Map<String, Object>> all =
 	            (List<Map<String, Object>>) callGetApi(
-	                    "https://polycab.fiberify.com/api/master-mini-geofences"
+	                    "https://sitpolycab.fiberify.com/api/master-mini-geofences"
 	            );
 
 	    List<Map<String, Object>> masters = new ArrayList<>();
@@ -347,7 +347,7 @@ public class UserService {
 
 	        // fetch user
 	    	Map<String, Object> user = (Map<String, Object>) callGetApi(
-	    		    "https://polycab.fiberify.com/api/users/" + login
+	    		    "https://sitpolycab.fiberify.com/api/users/" + login
 	    		);
 
 	        // update reporting
@@ -361,7 +361,7 @@ public class UserService {
 
 	        // call PUT API
 	        callPutApi(
-	            "https://polycab.fiberify.com/api/users",
+	            "https://sitpolycab.fiberify.com/api/users",
 	            user
 	        );
 	    }
