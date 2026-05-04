@@ -24,7 +24,7 @@ public class UserService {
     @Autowired
     private RestTemplate restTemplate;
 
-    private final String token = "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJwb2x5Y2FiIiwiYXV0aCI6IlJPTEVfQkEsUk9MRV9PQSxST0xFX1BMQU5fQURNSU4sUk9MRV9ST0xMT1VUX0FETUlOLFJPTEVfUk9MTE9VVF9NQU5BR0VSLFJPTEVfVVNFUl9BRE1JTiIsImV4cCI6MTc3NzYxNzEyMH0.noSbYaF9rzleqtYdHaqMUGKdwP8eGgm-qlUD8y5H7R4nJrwfrHOz71BPftJST6v_wKmzgpoK5cmwKvoWAbshOg";
+    private final String token = "eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiJmaWJlcmlmeWluYyIsImF1dGgiOiJST0xFX0JBLFJPTEVfT0EsUk9MRV9QTEFOX0FETUlOLFJPTEVfUk9MTE9VVF9BRE1JTixST0xFX1JPTExPVVRfTUFOQUdFUixST0xFX1VTRVJfQURNSU4iLCJleHAiOjE3ODA0NjYwMDV9.cmZyqBLgTnReI6BavLo0zc0KC3eLAIKoacb2ZyqhVOttg_2svHk4DXAeafTEQY-v5NGlVrXEacNQykYx5RKbJg";
 
     // 🔥 THREAD POOL
     private final ExecutorService executor = Executors.newFixedThreadPool(10);
