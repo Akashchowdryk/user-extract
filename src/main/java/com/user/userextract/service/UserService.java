@@ -420,7 +420,11 @@ public class UserService {
 
 	        String reportingTo = (String) u.get("reportingTo");
 
-	        if (login.equals(reportingTo)) {
+	        if (
+	        	    login.equals(reportingTo)
+	        	    &&
+	        	    !login.equals(u.get("login"))
+	        	) {
 
 	            u.put("hasChildren", hasChildren(users, (String) u.get("login")));
 	            children.add(u);
