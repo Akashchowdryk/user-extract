@@ -81,6 +81,9 @@ public class UserService {
                         UserSummaryDTO dto = new UserSummaryDTO();
 
                         dto.setLogin(login);
+                        dto.setId(
+                        	    ((Number) user.get("id")).longValue()
+                        	);
                         dto.setName(user.get("firstName") + " " + user.get("lastName"));
                         dto.setPhone((String) user.get("phone"));
                         dto.setActivated((Boolean) user.get("activated"));
@@ -448,6 +451,7 @@ public class UserService {
 
 	        Map<String, Object> map = new HashMap<>();
 
+	        map.put("id", dto.getId());
 	        map.put("login", dto.getLogin());
 	        map.put("reportingTo", dto.getReportingTo());
 
